@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import getpass
 import logging
 import os
 import os.path
@@ -50,10 +51,7 @@ class Client(object):
             self._ssh.close()
             del self._ssh
 
-    def connect(self):
-        if hasattr(self, '_client'):
-            return
-
+    def _connect(self, password=None):
         sock = None
         if self.host.get('proxycommand'):
             sock = ssh.ProxyCommand(self.host['proxycommand'])
@@ -61,12 +59,24 @@ class Client(object):
         self._ssh = ssh.SSHClient()
         self._ssh.load_system_host_keys()
         self._ssh.set_missing_host_key_policy(ssh.AutoAddPolicy())
+
         self._ssh.connect(
             self.host['hostname'], self.host['port'],
             username=self.host.get('user'),
             key_filename=self.host.get('identityfile'),
-            sock=sock
+            sock=sock, password=password
         )
+
+    def connect(self):
+        if hasattr(self, '_client'):
+            return
+
+        try:
+            self._connect()
+        except ssh.PasswordRequiredException:
+            msg = "Enter passphrase for private key: "
+            passwd = getpass.getpass(msg)
+            self._connect(password=passwd)
 
 
 class MediaResource(Resource):
